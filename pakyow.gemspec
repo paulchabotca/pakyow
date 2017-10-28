@@ -28,6 +28,9 @@ Gem::Specification.new do |spec|
   spec.add_dependency("bundler",          "~> 1.13")
   spec.add_dependency("thor",             "~> 0.19")
   spec.add_dependency("listen",           "~> 3.1")
+  spec.add_dependency("curses",           "~> 1.2")
+  spec.add_dependency("tty-screen",       "~> 0.5")
+  spec.add_dependency("pastel")
 
   spec.add_development_dependency("rspec", "~> 3.5")
   spec.add_development_dependency("pry", "~> 0.10")

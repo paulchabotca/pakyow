@@ -62,5 +62,13 @@ module Pakyow
     def version
       puts "Pakyow v#{VERSION}"
     end
+
+    desc "environment", "Start the Pakyow environment"
+    def environment
+      require "pakyow/commands/environment"
+      Commands::Environment.new.run
+    end
+
+    default_task :environment
   end
 end
