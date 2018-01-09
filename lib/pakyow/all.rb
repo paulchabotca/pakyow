@@ -5,6 +5,7 @@
   core
   data
   presenter
+  mailer
   realtime
   ui
 ).each do |lib|
