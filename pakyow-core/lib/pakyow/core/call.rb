@@ -10,6 +10,11 @@ module Pakyow
       @state = {}
     end
 
+    def finalize
+      # TODO: set cookies on response, with request cookies
+      @request.set_cookies(@response, @app.config.cookies); response
+    end
+
     def processed?
       @processed == true
     end

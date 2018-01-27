@@ -11,6 +11,36 @@ require "pakyow/core/framework"
 
 module Pakyow
   module Routing
+    class Router
+      class << self
+        def call(state)
+          state.app.state_for(:controller).each do |controller|
+            controller.try_routing(state)
+          end
+        end
+      end
+    end
+
+    class RespondToMissing
+      class << self
+        def call(state)
+          state.app.class.const_get(:Controller).new(state).trigger(404)
+        end
+      end
+    end
+
+    class RespondToFailure
+      class << self
+        def call(state)
+          controller = state.app.class.const_get(:Controller).new(state)
+          # try to handle the specific error
+          controller.handle_error(state.request.error)
+          # otherwise, just handle as a generic 500
+          controller.trigger(500)
+        end
+      end
+    end
+
     # Defines a RESTful resource.
     #
     # @see Routing::Extension::Resource
@@ -68,11 +98,12 @@ module Pakyow
         }
 
         app.class_eval do
+          # TODO: put those in a RoutingExtensions module or something
           extend Routing
 
           # Register the controller subclass as an endpoint,
           # so that requests will potentially be handled.
-          endpoint controller_class
+          # endpoint controller_class
 
           # Make it possible to define controllers on the app.
           stateful :controller, controller_class
@@ -101,12 +132,15 @@ module Pakyow
           # we wait, we introduce some misdirection because it is
           # no longer clear when the defined app will be built.
           #
-          # Disabling the endpoint will work fine for now. Perhaps
+          # Conditionally adding the action will work fine for now. Perhaps
           # some clarity on this issue can be found in the future.
           after :configure do
-            if Pakyow.env?(:prototype)
-              @endpoints.delete(controller_class)
+            unless Pakyow.env?(:prototype)
+              config.app.pipelines[:call].unshift(Router)
             end
+
+            config.app.pipelines[:call] << RespondToMissing
+            config.app.pipelines[:fail] << RespondToFailure
           end
         end
       end

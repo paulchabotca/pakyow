@@ -175,7 +175,7 @@ module Pakyow
     end
 
     def call_route(route)
-      route.call(self); throw(:routed)
+      route.call(self); throw(:halt)
     rescue StandardError => error
       handle_error(error)
       raise error
@@ -231,7 +231,8 @@ module Pakyow
     def reroute(location, method: request.method, **params)
       request.env[Rack::REQUEST_METHOD] = method.to_s.upcase
       request.env[Rack::PATH_INFO] = location.is_a?(Symbol) ? app.paths.path(location, **params) : location
-      throw :halt, app.call(request.env)
+      Routing::Router.call(@__state)
+      throw :halt
     end
 
     # Responds to a specific request format.
@@ -310,7 +311,7 @@ module Pakyow
     #
     def halt(body = nil)
       response.body = body if body
-      throw :halt, response
+      throw :halt
     end
 
     # Rejects the request, calling the next matching route.

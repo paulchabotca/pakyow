@@ -160,6 +160,9 @@ module Pakyow
       end
 
       setting :dsl, true
+
+      setting :pipelines, { call: [], fail: [] }
+      setting :helpers, []
     end
 
     settings_for :cookies do
@@ -233,23 +236,11 @@ module Pakyow
     extend Support::ClassLevelState
     class_level_state :frameworks, default: [], inheritable: true
     class_level_state :concerns,   default: [], inheritable: true
-    class_level_state :endpoints,  default: [], inheritable: true
-    class_level_state :helpers,    default: [], inheritable: true
 
     def initialize(environment, builder: nil, stage: false, &block)
       @paths = Paths.new
       @environment = environment
       @builder = builder
-
-      @endpoints = self.class.endpoints.map { |endpoint|
-        self.class.helpers.each do |helper_module|
-          endpoint.class_eval do
-            include helper_module
-          end
-        end
-
-        endpoint
-      }
 
       performing :initialize do
         performing :configure do
@@ -270,35 +261,40 @@ module Pakyow
       defined!(&block) unless stage
     end
 
-    def booted
-      call_hooks :after, :boot
-    end
+    class Pipeline
+      def initialize(pipeline)
+        @pipeline = pipeline
+      end
 
-    RESPOND_MISSING = [[], 404, {}].freeze
-    RESPOND_ERRORED = [[], 500, {}].freeze
+      def call(state, context: self)
+        catch :halt do
+          @pipeline.each do |action|
+            if action.is_a?(Symbol)
+              context.send(action, state)
+            else
+              action.call(state)
+            end
+          end
+        end
+
+        state
+      end
+    end
 
     def call(env)
       call = Call.new(self, Request.new(env), Response.new)
 
-      response = catch(:halt) {
-        @endpoints.each do |endpoint|
-          endpoint.call(call)
-        end
-
-        # If no endpoint has halted or marked the call as processed, assume
-        # that the call was unhandled and return a 404 response.
-        unless call.processed?
-          handle_missing(call)
-        end
-      } || call.response
-
-      call.request.set_cookies(response, config.cookies); response
+      Pipeline.new(
+        config.app.pipelines[:call]
+      ).call(call, context: self).finalize
     rescue StandardError => error
       env[Rack::RACK_LOGGER].houston(error)
 
-      catch(:halt) {
-        handle_failure(call, error)
-      }
+      call.request.error = error
+
+      Pipeline.new(
+        config.app.pipelines[:fail]
+      ).call(call, context: self).finalize
     end
 
     def freeze
@@ -308,26 +304,6 @@ module Pakyow
     end
 
     protected
-
-    def handle_missing(call)
-      @endpoints.each do |endpoint|
-        endpoint.handle_missing(call)
-      end
-
-      unless call.handled_missing?
-        throw :halt, Response.new(*RESPOND_MISSING)
-      end
-    end
-
-    def handle_failure(call, error)
-      @endpoints.each do |endpoint|
-        endpoint.handle_failure(call, error)
-      end
-
-      unless call.handled_failure?
-        throw :halt, Response.new(*RESPOND_ERRORED)
-      end
-    end
 
     def load_app
       $LOAD_PATH.unshift(File.join(config.app.src, "lib"))
@@ -388,18 +364,6 @@ module Pakyow
       # @see concerns
       def concern(name)
         @concerns << name
-      end
-
-      # Register an endpoint by name.
-      #
-      def endpoint(object)
-        @endpoints << object
-      end
-
-      # Registers a helper module to be loaded on defined endpoints.
-      #
-      def helper(helper_module)
-        @helpers << helper_module
       end
     end
   end
