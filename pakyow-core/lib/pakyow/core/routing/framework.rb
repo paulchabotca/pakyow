@@ -80,6 +80,21 @@ module Pakyow
           # Load defined controllers into the namespace.
           concern :controllers
 
+          settings_for :controller do
+            setting :pipelines, []
+          end
+
+          settings_for :csrf do
+            setting :enabled, true
+            setting :origin_whitelist, []
+            setting :allow_empty_referrer, true
+
+            setting :protection do
+              require "pakyow/core/security/protection/csrf"
+              Security::Protection::CSRF.new(config.csrf)
+            end
+          end
+
           # Remove the routing framework in prototype mode.
           #
           # Conditionally loading the routing framework based on
@@ -106,6 +121,17 @@ module Pakyow
           after :configure do
             if Pakyow.env?(:prototype)
               @endpoints.delete(controller_class)
+            end
+
+            if config.csrf.enabled
+              require "pakyow/core/security/pipelines/csrf"
+              config.controller.pipelines << Pakyow::Security::Pipelines::CSRF
+            end
+          end
+
+          before :load do
+            config.controller.pipelines.each do |pipeline|
+              controller_class.include pipeline
             end
           end
         end

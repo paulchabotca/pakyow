@@ -1,12 +1,8 @@
-require "pakyow/security/middleware/base"
+require "pakyow/core/security/protection/base"
 
-RSpec.describe Pakyow::Security::Middleware::Base do
+RSpec.describe Pakyow::Security::Protection::Base do
   let :instance do
-    Pakyow::Security::Middleware::Base.new(app)
-  end
-
-  let :app do
-    double(:app)
+    Pakyow::Security::Middleware::Base.new(double(:config))
   end
 
   describe "safe methods" do
