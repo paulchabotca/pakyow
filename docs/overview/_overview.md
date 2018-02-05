@@ -18,7 +18,7 @@ Users of the modern web prefer interactive experiences over static content. To
 accomplish this, many developers have chosen to move some or all of their
 application to the client. Rather than responding with the requested document,
 the server responds with JavaScript that (hopefully) renders the requested
-document. In the client-side Web, a url most often points at a blank page. *The
+document. In the client-side Web, an url most often points at a blank page. *The
 client-side model breaks the Web.*
 
 Pakyow lets you build interactive user experiences that sit on top of a
